@@ -26,9 +26,10 @@
 #' @export
 
 # Edited original code to fit the Massbank MSMS libraries. 
-# Main fixes: - shorten name
-#             - cleaned name using janitor
-# Need to move the library to the R/libraries/MetaboAnnotatoR/libraries folder when running the annotateAIF function
+# Main fixes: - shorten name using stringr::str_trunc
+#             - cleaned name using janitor::
+#             - added additional ion_mode == "P" || ion_mode == "POS" to write correct targetPath since some ion_mode entries are not same (also same thing for NEGATIVE).
+# After finishing, then need to move the library to the /R/libraries/MetaboAnnotatoR/libraries folder before running the annotateAIF function
 
 mspToLib <- function(msp_file,
                      library_name = "Custom",
@@ -49,14 +50,18 @@ mspToLib <- function(msp_file,
   # read msp file
   m <- readLines(msp_file, warn = FALSE)
 
-  # remove comment field to avoid problem with parsing "Name:"
+  # remove comment field to avoid problem with names
   comment <- grep("Comments:", m)
   m <- m[-(comment)]
 
   n <- grep("Name:", m)
   names <- unlist(lapply(n, function(x) substring(m[x], 7, nchar(m[x]))))
-  names <- stringr::str_trunc(names, 30, "right") #shorten very long names, otherwise cannot write csv
-  names <- janitor::make_clean_names(names) # cleaning names for writing csv names
+
+  # Shorten compound names since some are very very long..
+  names <- stringr::str_trunc(names, 50, "right")
+
+  # Clean the names before and after. Duplicate names are given _1, _2,...
+  names <- janitor::make_clean_names(names)
 
 
   # get number of peaks per MS/MS record
@@ -169,10 +174,11 @@ mspToLib <- function(msp_file,
       colnames(result) <- adduct
       rownames(result) <- c(name,'scores')
     } else NULL
-    if(ion_mode=="POSITIVE") {
+    
+    if(ion_mode=="POSITIVE" || ion_mode == "P" || ion_mode == "POS") {
       dir.create(paste(dirPath,"/POS/",sep=""), showWarnings = FALSE)
       targetPath <- paste(dirPath,"/POS/", filename, sep = "")
-    } else if(ion_mode=="NEGATIVE"){
+    } else if(ion_mode=="NEGATIVE" || ion_mode == "N" || ion_mode == "NEG"){
       dir.create(paste(dirPath,"/NEG/",sep=""), showWarnings = FALSE)
       targetPath <- paste(dirPath,"/NEG/", filename, sep = "")
     }
